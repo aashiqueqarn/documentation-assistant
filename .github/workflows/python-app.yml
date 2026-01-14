@@ -106,6 +106,7 @@ jobs:
       LANGSMITH_PROJECT: ${{ secrets.LANGSMITH_PROJECT }}
       INDEX_NAME: ${{ secrets.INDEX_NAME }}
       PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
 
 
     steps:

@@ -24,32 +24,29 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version-file: .python-version
+          cache: pip
 
-      - name: Install uv
+      - name: Install pipenv
         run: |
           python -m pip install --upgrade pip
-          pip install uv
+          pip install pipenv
 
-      - name: Install project dependencies (uv)
+      - name: Install dependencies (Pipfile.lock)
         run: |
-          uv sync --locked
+          pipenv install --deploy --ignore-pipfile
 
-      - name: Install flake8 via pipx
+      - name: Run flake8 (strict errors)
         run: |
-          python -m pip install --user pipx
-          pipx ensurepath
-          pipx install flake8
-
-      - name: Run flake8
-        run: |
-          flake8 . \
+          pipenv run flake8 . \
             --exclude=.venv,venv,.git,__pycache__,build,dist \
             --count \
             --select=E9,F63,F7,F82 \
             --show-source \
             --statistics
 
-          flake8 . \
+      - name: Run flake8 (style warnings)
+        run: |
+          pipenv run flake8 . \
             --exclude=.venv,venv,.git,__pycache__,build,dist \
             --count \
             --exit-zero \
@@ -65,38 +62,38 @@ jobs:
     needs: lint   # run only if lint job passes
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Python from .python-version
         uses: actions/setup-python@v5
         with:
           python-version-file: .python-version
+          cache: pip
 
-      - name: Install uv
+      - name: Install pipenv
         run: |
           python -m pip install --upgrade pip
-          pip install uv
+          pip install pipenv
 
-      - name: Install dependencies
+      - name: Install dependencies (Pipfile.lock)
         run: |
-          uv sync --locked
+          pipenv install --deploy --ignore-pipfile
 
       - name: Run tests if tests exist
         run: |
           if ls -1 *test*.py 2>/dev/null | grep -q .; then
-              uv run pytest
+              pipenv run pytest
           else
               echo "No tests found. Skipping pytest."
           fi
-
-
 
   # -------------------------------
   # 3. RUN AGENT SCRIPT
   # -------------------------------
   run-agent:
     runs-on: ubuntu-latest
-    needs: test   # run only if tests pass
+    needs: test
 
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -108,28 +105,25 @@ jobs:
       PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
       TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
 
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Python from .python-version
         uses: actions/setup-python@v5
         with:
           python-version-file: .python-version
+          cache: pip
 
-      - name: Install uv
+      - name: Install pipenv
         run: |
           python -m pip install --upgrade pip
-          pip install uv
+          pip install pipenv
 
-      - name: Install dependencies
+      - name: Install dependencies (Pipfile.lock)
         run: |
-          uv sync --locked
+          pipenv install --deploy --ignore-pipfile
 
       - name: Execute ingestion.py
         run: |
-          uv run python ingestion.py
-
-      - name: Execute main.py
-        run: |
-          uv run python main.py
+          pipenv run python ingestion.py

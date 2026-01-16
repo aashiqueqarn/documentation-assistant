@@ -119,3 +119,8 @@ jobs:
       - name: Execute ingestion.py
         run: |
           pipenv run python ingestion.py
+
+      - name: Execute core.py
+        run: |
+          pipenv run python backend/core.py
+      

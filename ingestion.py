@@ -29,6 +29,85 @@ tavily_extract = TavilyExtract()
 tavily_map  = TavilyMap(max_depth=5, max_breadth=20, max_pages=1000)
 tavily_crawl = TavilyCrawl()
 
+def chunk_urls(urls: List[str], chunk_size: int = 3) -> List[List[str]]:
+  """Split URLs into chunks of specified sizes """
+  chunks = []
+  for i in range(0, len(urls), chunk_size):
+    chunk = urls[i:i + chunk_size]
+    chunks.append(chunk)
+  return chunks
+
+async def extract_batch(urls: List[str], batch_num: int) -> List[Dict[str, any]]:
+  """Extract documents from batch of urls"""
+  try:
+    log_info(f"Processing batch {batch_num} with {len(urls)} URLs", Colors.BLUE)
+    docs = await tavily_extract.ainvoke(input= {"urls": urls})
+    results = docs.get('results', [])
+    log_success(f"Batch {batch_num} completed - extracted {len(results)} documents")
+    return docs
+  except Exception as e:
+    log_error(f"Batch {batch_num} failed: {e}")
+    return []
+
+async def async_extract(url_batches: List[List[str]]):
+    log_header("DOCUMENT EXTRACTION PHASE")
+    log_info(
+        f"Starting extraction for {len(url_batches)} batch(es) of URLs.",
+        Colors.DARK_CYAN
+    )
+    tasks = [extract_batch(batch, i + 1) for i, batch in enumerate(url_batches)]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    #Filter out exceptions and flatten results
+    all_pages = []
+    failed_batches = 0
+    for result in results:
+        if isinstance(result, Exception):
+            log_error(f"TavilyExtract: A batch failed with exception: {result}")
+            failed_batches += 1
+        else:
+            pages = result["results"] if isinstance(result, dict) and "results" in result else result
+            for extracted_page in pages:
+                documents = Document(
+                    page_content = extracted_page['raw_content'],
+                    metadata = {"source": extracted_page['url']}
+                )
+                all_pages.append(documents)
+
+    log_success(
+        f"TavilyExtract: Extraction completed with {len(all_pages)} document(s) extracted. "
+    )
+    if failed_batches > 0:
+        log_warning(f"TavilyExtract: {failed_batches} batch(es) failed during extraction.")
+    return all_pages
+
+async def document_helper():
+    """document_helper async function to orchestrate this process."""
+    log_header("DOCUMENTATION INGESTION PIPELINE FOR DOCUMENT HELPER")
+    log_info(
+        "TavilyCrawl: Starting to crawl documentation from https://python.langchain.com",
+        Colors.PURPLE
+    )
+    # Crawl the documentation site
+    site_map = tavily_crawl.invoke("https://python.langchain.com")
+    log_success(f"TavilyMap: Successfully mapped {len(site_map['results'])} URL(s) from documentation site.")
+    # Split the urls into batches of 20
+    url_batches = chunk_urls(list(site_map['results']), 20)
+    log_info(
+        f"URL processing: Split {len(site_map['results'])} URLs into {len(url_batches)} batch(es) of 20.",
+        Colors.BLUE
+    )
+    all_docs = await async_extract(url_batches)
+    log_header("DOCUMENT CHUNKING PHASE")
+    log_info(
+        f"TextSplitter: Processing {len(all_docs)} document(s) with 4000 chunk size and 200 overlap.",
+        Colors.YELLOW
+    )
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=4000, chunk_overlap=200)
+    split_docs = text_splitter.split_documents(all_docs)
+    log_success(
+        f"Text Splitter: Created {len(split_docs)} chunk(s) from {len(all_docs)} document(s)."
+    )
 
 
 async def main():
@@ -53,3 +132,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    asyncio.run(document_helper())

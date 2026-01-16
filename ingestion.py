@@ -49,6 +49,45 @@ async def extract_batch(urls: List[str], batch_num: int) -> List[Dict[str, any]]
     log_error(f"Batch {batch_num} failed: {e}")
     return []
 
+
+
+
+async def index_document_async(documents: List[Document], batch_size: int = 50):
+    """Process documents in batches asynchronously"""
+    log_header("VECTOR STORAGE PHASE")
+    log_info(
+        f"VectorStorage Indexing: Preparing to add {len(documents)} to vector store",
+        Colors.DARK_CYAN
+    )
+    batches = [
+        documents[i : i + batch_size] for i in range(0, len(documents), batch_size)
+    ]
+    log_info(
+        f"VectorStorage Indexing: Split documents into {len(batches)} batch(es) of {batch_size}.",
+    )
+
+    async def add_batch(batch: List[Document], batch_num: int):
+        try:
+            vector_store.add_documents(batch)
+            log_success(f"VectorStorage: Successfully indexed batch {batch_num} with {len(batch)} documents.")
+        except Exception as e:
+            log_error(f"VectorStorage Indexing: Failed to index batch {batch_num}: {e}")
+            return False
+        return True
+
+    tasks = [add_batch(batch, i+1) for i, batch in enumerate(batches)]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    successful = sum(1 for result in results if result is True)
+    if successful == len(batches):
+        log_success(
+            f"VectorStorage Indexing: All batches processed successfully! ({successful}/{len(batches)})"
+        )
+    else:
+        log_warning(
+            f"VectorStorage Indexing: Processed {successful}/{len(batches)} batches successfully."
+        )
+
 async def async_extract(url_batches: List[List[str]]):
     log_header("DOCUMENT EXTRACTION PHASE")
     log_info(
@@ -92,7 +131,8 @@ async def document_helper():
     site_map = tavily_crawl.invoke("https://python.langchain.com")
     log_success(f"TavilyMap: Successfully mapped {len(site_map['results'])} URL(s) from documentation site.")
     # Split the urls into batches of 20
-    url_batches = chunk_urls(list(site_map['results']), 20)
+    urls = [item["url"] for item in site_map["results"]]
+    url_batches = chunk_urls(urls, 20)
     log_info(
         f"URL processing: Split {len(site_map['results'])} URLs into {len(url_batches)} batch(es) of 20.",
         Colors.BLUE
@@ -108,6 +148,8 @@ async def document_helper():
     log_success(
         f"Text Splitter: Created {len(split_docs)} chunk(s) from {len(all_docs)} document(s)."
     )
+
+    await index_document_async(split_docs, batch_size=500)
 
 
 async def main():

@@ -122,5 +122,7 @@ jobs:
 
       - name: Execute main.py
         run: |
-          pipenv run streamlit run main.py
+          pipenv run streamlit run main.py --server.headless true --server.runOnSave false &
+          sleep 10
+          pkill -f "streamlit"
       

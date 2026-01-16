@@ -23,8 +23,8 @@ os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
 embeddings = OpenAIEmbeddings(
     model="text-embedding-3-small", show_progress_bar=False, chunk_size=50, retry_min_seconds=10
 )
-# chroma = Chroma(persist_directory="chroma_db", embedding_function=embeddings)
-vector_store = PineconeVectorStore(index_name="langchain-doc-index", embedding=embeddings)
+vector_store = Chroma(persist_directory="chroma_db", embedding_function=embeddings)
+# vector_store = PineconeVectorStore(index_name="langchain-doc-index", embedding=embeddings)
 tavily_extract = TavilyExtract()
 tavily_map  = TavilyMap(max_depth=5, max_breadth=20, max_pages=1000)
 tavily_crawl = TavilyCrawl()

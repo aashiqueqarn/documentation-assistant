@@ -120,7 +120,7 @@ jobs:
         run: |
           pipenv run python ingestion.py
 
-      - name: Execute core.py
+      - name: Execute main.py
         run: |
-          pipenv run python backend/core.py
+          pipenv run streamlit run main.py
       
